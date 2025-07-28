@@ -63,10 +63,25 @@ export const authService = {
       // A função RPC retorna um array, então pegamos o primeiro item
       const user = userData[0];
 
+      console.log('🔍 Login - Usuário encontrado:', { 
+        id: user.id, 
+        email: user.email, 
+        temSenhaHash: !!user.senha_hash 
+      });
+
       // Verificação básica de senha (em produção, use bcrypt)
       if (!user.senha_hash) {
+        console.log('❌ Login - Usuário sem senha hash');
         return { data: null, error: { message: 'Senha inválida.' } };
       }
+
+      // Comparar senha fornecida com a senha armazenada
+      if (user.senha_hash !== password) {
+        console.log('❌ Login - Senha incorreta');
+        return { data: null, error: { message: 'Senha incorreta.' } };
+      }
+
+      console.log('✅ Login - Senha correta, login aprovado');
 
       // Se chegou até aqui, o login foi bem-sucedido
       const userObj = {
@@ -213,6 +228,15 @@ export const protocolService = {
     try {
       console.log('🔍 getAvailable - Iniciando busca de protocolos...');
       
+      // Teste simples de conexão
+      console.log('🔍 getAvailable - Testando conexão com Supabase...');
+      const { data: testData, error: testError } = await supabase
+        .from('protocolos')
+        .select('count')
+        .limit(1);
+      
+      console.log('🔍 getAvailable - Teste de conexão:', { testData, testError });
+      
       // Obter o usuário atual do localStorage
       const userStr = localStorage.getItem('user');
       console.log('🔍 getAvailable - userStr do localStorage:', userStr);
@@ -234,6 +258,8 @@ export const protocolService = {
       
             // Primeiro, buscar TODOS os protocolos para debug
       console.log('🔍 getAvailable - Buscando TODOS os protocolos...');
+      console.log('🔍 getAvailable - Supabase URL:', supabaseUrl);
+      
       const { data: todosProtocolos, error: errorTodos } = await supabase
         .from('protocolos')
         .select('*')
@@ -241,6 +267,7 @@ export const protocolService = {
 
       console.log('📊 getAvailable - TODOS os protocolos no banco:', todosProtocolos);
       console.log('📊 getAvailable - Total de protocolos no banco:', todosProtocolos?.length || 0);
+      console.log('📊 getAvailable - Erro (se houver):', errorTodos);
 
       if (errorTodos) {
         console.error('❌ getAvailable - Erro ao buscar todos os protocolos:', errorTodos);
