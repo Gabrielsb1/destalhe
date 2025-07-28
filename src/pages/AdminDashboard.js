@@ -237,6 +237,9 @@ const AdminDashboard = () => {
   }
 
   const exportToCSV = () => {
+    // Adicionar BOM para UTF-8 (resolve problemas de codificação no Excel)
+    const BOM = '\uFEFF';
+    
     const headers = ['Número', 'Status', 'Responsável', 'Data Verificação', 'Observações']
     const rows = protocolos.map(p => [
       p.numero_protocolo,
@@ -246,11 +249,21 @@ const AdminDashboard = () => {
       p.observacoes || ''
     ])
 
+    // Criar CSV com separador de vírgula e aspas duplas
     const csvContent = [headers, ...rows]
-      .map(row => row.map(field => `"${field}"`).join(','))
-      .join('\n')
+      .map(row => 
+        row.map(field => {
+          // Escapar aspas duplas e quebras de linha
+          const escapedField = String(field).replace(/"/g, '""');
+          return `"${escapedField}"`;
+        }).join(';') // Usar ponto e vírgula como separador (padrão brasileiro)
+      )
+      .join('\r\n'); // Usar \r\n para compatibilidade com Excel
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob([BOM + csvContent], { 
+      type: 'text/csv;charset=utf-8;' 
+    });
+    
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = `protocolos_${new Date().toISOString().split('T')[0]}.csv`
