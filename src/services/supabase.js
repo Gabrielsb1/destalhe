@@ -260,10 +260,10 @@ export const protocolService = {
       console.log('🔍 getAvailable - Buscando TODOS os protocolos...');
       console.log('🔍 getAvailable - Supabase URL:', supabaseUrl);
       
+      // Query mais simples para testar
       const { data: todosProtocolos, error: errorTodos } = await supabase
         .from('protocolos')
-        .select('*')
-        .order('numero_protocolo', { ascending: true });
+        .select('*');
 
       console.log('📊 getAvailable - TODOS os protocolos no banco:', todosProtocolos);
       console.log('📊 getAvailable - Total de protocolos no banco:', todosProtocolos?.length || 0);
@@ -271,6 +271,11 @@ export const protocolService = {
 
       if (errorTodos) {
         console.error('❌ getAvailable - Erro ao buscar todos os protocolos:', errorTodos);
+        console.error('❌ getAvailable - Detalhes do erro:', {
+          message: errorTodos.message,
+          details: errorTodos.details,
+          hint: errorTodos.hint
+        });
         throw errorTodos;
       }
       
@@ -279,8 +284,7 @@ export const protocolService = {
       const { data: protocolosPendentes, error: errorPendentes } = await supabase
         .from('protocolos')
         .select('*')
-        .eq('status', 'pendente')
-        .order('numero_protocolo', { ascending: true });
+        .eq('status', 'pendente');
       
       console.log('📊 getAvailable - Protocolos pendentes:', protocolosPendentes);
       console.log('📊 getAvailable - Total de protocolos pendentes:', protocolosPendentes?.length || 0);
@@ -296,8 +300,7 @@ export const protocolService = {
         .from('protocolos')
         .select('*')
         .eq('status', 'em_andamento')
-        .eq('responsavel_id', user.id)
-        .order('numero_protocolo', { ascending: true });
+        .eq('responsavel_id', user.id);
       
       console.log('📊 getAvailable - Protocolos em andamento:', protocolosEmAndamento);
       console.log('📊 getAvailable - Total de protocolos em andamento:', protocolosEmAndamento?.length || 0);
