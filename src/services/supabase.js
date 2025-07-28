@@ -190,12 +190,19 @@ export const protocolService = {
   // Listar protocolos disponíveis para colaborador
   async getAvailable() {
     try {
-      // Obter o ID do usuário atual
-      const { data: { user } } = await supabase.auth.getUser();
+      // Obter o usuário atual do localStorage
+      const userStr = localStorage.getItem('user');
       
-      if (!user) {
+      if (!userStr) {
         console.error('Usuário não autenticado');
         return { data: [], error: 'Usuário não autenticado' };
+      }
+      
+      const user = JSON.parse(userStr);
+      
+      if (!user || !user.id) {
+        console.error('Usuário inválido no localStorage');
+        return { data: [], error: 'Usuário inválido' };
       }
       
       // Buscar protocolos pendentes e em andamento pelo usuário atual
