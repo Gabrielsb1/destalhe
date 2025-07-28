@@ -1,0 +1,12 @@
+{
+  "name": "destalhe-scripts",
+  "version": "1.0.0",
+  "description": "Scripts para o sistema Destalhe",
+  "type": "module",
+  "scripts": {
+    "create-admin": "node create_admin.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.52.1"
+  }
+}

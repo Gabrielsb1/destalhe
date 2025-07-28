@@ -1,0 +1,5 @@
+# Copie este conteúdo para um arquivo chamado .env.local na raiz do projeto
+# Substitua os valores pelas suas credenciais do Supabase
+
+REACT_APP_SUPABASE_URL=https://seu-projeto-id.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=sua-chave-anon-aqui
