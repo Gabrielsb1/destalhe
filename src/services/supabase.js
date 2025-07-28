@@ -224,7 +224,7 @@ export const protocolService = {
   },
 
   // Listar protocolos disponíveis para colaborador
-    async getAvailable() {
+  async getAvailable() {
     try {
       console.log('🔍 getAvailable - Iniciando busca de protocolos...');
       
@@ -240,12 +240,12 @@ export const protocolService = {
       // Obter o usuário atual do localStorage
       const userStr = localStorage.getItem('user');
       console.log('🔍 getAvailable - userStr do localStorage:', userStr);
-
+      
       if (!userStr) {
         console.error('❌ getAvailable - Usuário não autenticado');
         return { data: [], error: 'Usuário não autenticado' };
       }
-
+      
       const user = JSON.parse(userStr);
       console.log('🔍 getAvailable - Usuário parseado:', user);
 
