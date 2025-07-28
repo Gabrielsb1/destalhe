@@ -4,6 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://zhwmzlqeiwaawzsrcbsd.supabase.co';
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpod216bHFlaXdhYXd6c3JjYnNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0NjU1NDQsImV4cCI6MjA2OTA0MTU0NH0.xO7GhtD4N2-8kR_hsBF30KD1AOon8FSFCcAVlSyF0fo';
 
+// Log para debug em produção
+console.log('🌐 Ambiente:', process.env.NODE_ENV);
+console.log('🔗 Supabase URL configurada:', !!supabaseUrl);
+console.log('🔑 Supabase Key configurada:', !!supabaseAnonKey);
+
 console.log('🔍 Debug - Variáveis de ambiente:');
 console.log('REACT_APP_SUPABASE_URL:', supabaseUrl);
 console.log('REACT_APP_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✅ Configurada' : '❌ Não configurada');
@@ -204,52 +209,62 @@ export const protocolService = {
   },
 
   // Listar protocolos disponíveis para colaborador
-  async getAvailable() {
+    async getAvailable() {
     try {
+      console.log('🔍 getAvailable - Iniciando busca de protocolos...');
+      
       // Obter o usuário atual do localStorage
       const userStr = localStorage.getItem('user');
-      
+      console.log('🔍 getAvailable - userStr do localStorage:', userStr);
+
       if (!userStr) {
-        console.error('Usuário não autenticado');
+        console.error('❌ getAvailable - Usuário não autenticado');
         return { data: [], error: 'Usuário não autenticado' };
       }
-      
+
       const user = JSON.parse(userStr);
-      
+      console.log('🔍 getAvailable - Usuário parseado:', user);
+
       if (!user || !user.id) {
-        console.error('Usuário inválido no localStorage');
+        console.error('❌ getAvailable - Usuário inválido no localStorage');
         return { data: [], error: 'Usuário inválido' };
       }
+
+      console.log('✅ getAvailable - Usuário autenticado:', user);
       
-      console.log('Usuário autenticado:', user);
-      
-      // Primeiro, buscar TODOS os protocolos para debug
+            // Primeiro, buscar TODOS os protocolos para debug
+      console.log('🔍 getAvailable - Buscando TODOS os protocolos...');
       const { data: todosProtocolos, error: errorTodos } = await supabase
         .from('protocolos')
         .select('*')
         .order('numero_protocolo', { ascending: true });
-      
-      console.log('TODOS os protocolos no banco:', todosProtocolos);
-      console.log('Total de protocolos no banco:', todosProtocolos?.length || 0);
-      
+
+      console.log('📊 getAvailable - TODOS os protocolos no banco:', todosProtocolos);
+      console.log('📊 getAvailable - Total de protocolos no banco:', todosProtocolos?.length || 0);
+
       if (errorTodos) {
-        console.error('Erro ao buscar todos os protocolos:', errorTodos);
+        console.error('❌ getAvailable - Erro ao buscar todos os protocolos:', errorTodos);
         throw errorTodos;
       }
       
       // Buscar protocolos pendentes
+      console.log('🔍 getAvailable - Buscando protocolos pendentes...');
       const { data: protocolosPendentes, error: errorPendentes } = await supabase
         .from('protocolos')
         .select('*')
         .eq('status', 'pendente')
         .order('numero_protocolo', { ascending: true });
       
+      console.log('📊 getAvailable - Protocolos pendentes:', protocolosPendentes);
+      console.log('📊 getAvailable - Total de protocolos pendentes:', protocolosPendentes?.length || 0);
+      
       if (errorPendentes) {
-        console.error('Erro ao buscar protocolos pendentes:', errorPendentes);
+        console.error('❌ getAvailable - Erro ao buscar protocolos pendentes:', errorPendentes);
         throw errorPendentes;
       }
       
       // Buscar protocolos em andamento pelo usuário atual
+      console.log('🔍 getAvailable - Buscando protocolos em andamento para usuário ID:', user.id);
       const { data: protocolosEmAndamento, error: errorEmAndamento } = await supabase
         .from('protocolos')
         .select('*')
@@ -257,8 +272,11 @@ export const protocolService = {
         .eq('responsavel_id', user.id)
         .order('numero_protocolo', { ascending: true });
       
+      console.log('📊 getAvailable - Protocolos em andamento:', protocolosEmAndamento);
+      console.log('📊 getAvailable - Total de protocolos em andamento:', protocolosEmAndamento?.length || 0);
+      
       if (errorEmAndamento) {
-        console.error('Erro ao buscar protocolos em andamento:', errorEmAndamento);
+        console.error('❌ getAvailable - Erro ao buscar protocolos em andamento:', errorEmAndamento);
         throw errorEmAndamento;
       }
       
