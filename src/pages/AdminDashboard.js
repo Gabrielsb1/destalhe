@@ -106,7 +106,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     console.log('useEffect executado - filtros atuais:', filters);
     loadData();
-  }, [loadData])
+  }, [loadData, filters])
 
   const calculateStats = async (protocols) => {
     console.log('Iniciando calculateStats com protocolos:', protocols);
@@ -137,7 +137,7 @@ const AdminDashboard = () => {
 
     try {
       // Buscar todos os colaboradores ativos
-      const { data: colaboradores, error } = await supabase
+      const { data: colaboradores } = await supabase
         .from('usuarios')
         .select('id, nome')
         .eq('ativo', true)

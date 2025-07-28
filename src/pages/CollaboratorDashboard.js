@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { protocolService, metaService } from '../services/supabase'
-import { FileText, CheckCircle, XCircle, Clock, Target, User, Calendar, Search } from 'lucide-react'
+import { FileText, CheckCircle, XCircle, Clock, Target, User, Calendar } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const CollaboratorDashboard = () => {
@@ -19,7 +19,7 @@ const CollaboratorDashboard = () => {
 
   useEffect(() => {
     loadData()
-  }, [user])
+  }, [user, loadData])
 
   const loadData = async () => {
     try {
@@ -64,7 +64,7 @@ const CollaboratorDashboard = () => {
 
   const handleStartProtocol = async (protocol) => {
     try {
-      const { data, error } = await protocolService.start(protocol.id, user.id)
+      const { error } = await protocolService.start(protocol.id, user.id)
       if (error) {
         toast.error('Erro ao iniciar protocolo')
         return
@@ -91,7 +91,7 @@ const CollaboratorDashboard = () => {
       // Garante que o status está no formato correto
       const statusFinal = status === 'dados_excluídos' ? 'dados_excluidos' : status;
       
-      const { data, error } = await protocolService.finish(
+      const { error } = await protocolService.finish(
         selectedProtocol.id, 
         statusFinal, 
         observacoes
@@ -103,7 +103,7 @@ const CollaboratorDashboard = () => {
         return;
       }
 
-      console.log('Protocolo finalizado com sucesso:', data);
+      console.log('Protocolo finalizado com sucesso');
       const statusText = statusFinal === 'cancelado' ? 'cancelado' : 'marcado como dados excluídos';
       toast.success(`Protocolo ${statusText} com sucesso!`);
       
