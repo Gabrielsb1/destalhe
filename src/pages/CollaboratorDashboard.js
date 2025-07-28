@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { protocolService, metaService } from '../services/supabase'
 import { FileText, CheckCircle, XCircle, Clock, Target, User, Calendar } from 'lucide-react'
@@ -17,11 +17,7 @@ const CollaboratorDashboard = () => {
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchedProtocol, setSearchedProtocol] = useState(null)
 
-  useEffect(() => {
-    loadData()
-  }, [user, loadData])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       console.log('Iniciando carregamento de dados...');
       setLoading(true);
@@ -60,7 +56,11 @@ const CollaboratorDashboard = () => {
       setLoading(false);
       console.log('Carregamento de dados concluído');
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleStartProtocol = async (protocol) => {
     try {
