@@ -1,16 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Configuração do Supabase via variáveis de ambiente
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://zhwmzlqeiwaawzsrcbsd.supabase.co';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpod216bHFlaXdhYXd6c3JjYnNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM0NjU1NDQsImV4cCI6MjA2OTA0MTU0NH0.xO7GhtD4N2-8kR_hsBF30KD1AOon8FSFCcAVlSyF0fo';
+
+console.log('🔍 Debug - Variáveis de ambiente:');
+console.log('REACT_APP_SUPABASE_URL:', supabaseUrl);
+console.log('REACT_APP_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✅ Configurada' : '❌ Não configurada');
 
 // Verificar se as variáveis estão configuradas
-if (!supabaseUrl || !supabaseAnonKey || 
-    supabaseUrl.includes('sua_url') || 
-    supabaseAnonKey.includes('sua_chave')) {
-  console.warn('⚠️ Configure as credenciais do Supabase no arquivo .env.local');
-  console.warn('REACT_APP_SUPABASE_URL=https://seu-projeto.supabase.co');
-  console.warn('REACT_APP_SUPABASE_ANON_KEY=sua-chave-anon-completa');
+if (!supabaseUrl) {
+  console.error('❌ REACT_APP_SUPABASE_URL não configurada');
+  throw new Error('REACT_APP_SUPABASE_URL não configurada');
+}
+
+if (!supabaseAnonKey) {
+  console.error('❌ REACT_APP_SUPABASE_ANON_KEY não configurada');
+  throw new Error('REACT_APP_SUPABASE_ANON_KEY não configurada');
+}
+
+if (supabaseUrl.includes('sua_url') || supabaseUrl.includes('seu-projeto')) {
+  console.error('❌ REACT_APP_SUPABASE_URL contém valor de exemplo');
+  throw new Error('REACT_APP_SUPABASE_URL contém valor de exemplo');
+}
+
+if (supabaseAnonKey.includes('sua_chave') || supabaseAnonKey.includes('sua-chave-anon')) {
+  console.error('❌ REACT_APP_SUPABASE_ANON_KEY contém valor de exemplo');
+  throw new Error('REACT_APP_SUPABASE_ANON_KEY contém valor de exemplo');
 }
 
 // Criar cliente do Supabase
@@ -205,17 +221,55 @@ export const protocolService = {
         return { data: [], error: 'Usuário inválido' };
       }
       
-      // Buscar protocolos pendentes e em andamento pelo usuário atual
-      const { data: protocolos, error } = await supabase
+      console.log('Usuário autenticado:', user);
+      
+      // Primeiro, buscar TODOS os protocolos para debug
+      const { data: todosProtocolos, error: errorTodos } = await supabase
         .from('protocolos')
         .select('*')
-        .or(`status.eq.pendente,and(status.eq.em_andamento,responsavel_id.eq.${user.id})`)
-        .order('status', { ascending: true }) // Mostra 'em_andamento' primeiro
         .order('numero_protocolo', { ascending: true });
       
-      if (error) throw error;
+      console.log('TODOS os protocolos no banco:', todosProtocolos);
+      console.log('Total de protocolos no banco:', todosProtocolos?.length || 0);
       
-      console.log('Protocolos disponíveis:', protocolos);
+      if (errorTodos) {
+        console.error('Erro ao buscar todos os protocolos:', errorTodos);
+        throw errorTodos;
+      }
+      
+      // Buscar protocolos pendentes
+      const { data: protocolosPendentes, error: errorPendentes } = await supabase
+        .from('protocolos')
+        .select('*')
+        .eq('status', 'pendente')
+        .order('numero_protocolo', { ascending: true });
+      
+      if (errorPendentes) {
+        console.error('Erro ao buscar protocolos pendentes:', errorPendentes);
+        throw errorPendentes;
+      }
+      
+      // Buscar protocolos em andamento pelo usuário atual
+      const { data: protocolosEmAndamento, error: errorEmAndamento } = await supabase
+        .from('protocolos')
+        .select('*')
+        .eq('status', 'em_andamento')
+        .eq('responsavel_id', user.id)
+        .order('numero_protocolo', { ascending: true });
+      
+      if (errorEmAndamento) {
+        console.error('Erro ao buscar protocolos em andamento:', errorEmAndamento);
+        throw errorEmAndamento;
+      }
+      
+      // Combinar os resultados
+      const protocolos = [
+        ...(protocolosEmAndamento || []),
+        ...(protocolosPendentes || [])
+      ];
+      
+      console.log('Protocolos disponíveis para o usuário:', protocolos);
+      console.log('Total de protocolos disponíveis:', protocolos?.length || 0);
       return { 
         data: protocolos || [], 
         error: null 

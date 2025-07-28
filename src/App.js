@@ -152,6 +152,9 @@ const AppContent = () => {
 }
 
 function App() {
+  console.log('🚀 App.js - Componente App sendo renderizado');
+  console.log('🚀 App.js - Supabase configurado:', !!supabase);
+  
   // Se o Supabase não estiver configurado, mostrar tela de configuração
   if (!supabase) {
     return (

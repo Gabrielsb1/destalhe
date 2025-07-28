@@ -25,21 +25,23 @@ export const AuthProvider = ({ children }) => {
     // Função para verificar o usuário atual
     const checkUser = async () => {
       try {
-        console.log('Verificando usuário atual...');
-        const { data: currentUser } = await authService.getCurrentUser();
+        console.log('🔍 AuthContext - Verificando usuário atual...');
+        const { data: currentUser, error } = await authService.getCurrentUser();
+        
+        console.log('🔍 AuthContext - Resultado da verificação:', { currentUser, error });
         
         if (currentUser) {
-          console.log('Usuário encontrado:', currentUser.email);
+          console.log('✅ AuthContext - Usuário encontrado:', currentUser.email);
           setUser(currentUser);
         } else {
-          console.log('Nenhum usuário logado');
+          console.log('❌ AuthContext - Nenhum usuário logado');
           setUser(null);
         }
       } catch (error) {
-        console.error('Erro ao verificar usuário:', error);
+        console.error('❌ AuthContext - Erro ao verificar usuário:', error);
         setUser(null);
       } finally {
-        console.log('Finalizando verificação de usuário');
+        console.log('✅ AuthContext - Finalizando verificação de usuário');
         setLoading(false);
       }
     };
