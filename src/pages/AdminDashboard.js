@@ -137,12 +137,24 @@ const AdminDashboard = () => {
 
     try {
       // Buscar todos os colaboradores ativos
-      const { data: colaboradores } = await supabase
+      console.log('Buscando colaboradores ativos...');
+      
+      // Primeiro, vamos verificar se a tabela usuarios existe e tem dados
+      const { data: todosUsuarios, error: todosUsuariosError } = await supabase
+        .from('usuarios')
+        .select('*');
+      
+      console.log('Todos os usuários:', todosUsuarios);
+      console.log('Erro ao buscar todos usuários:', todosUsuariosError);
+      
+      // Agora buscar colaboradores ativos
+      const { data: colaboradores, error: colaboradoresError } = await supabase
         .from('usuarios')
         .select('id, nome')
         .eq('ativo', true)
         .eq('tipo_usuario', 'colaborador');
 
+      console.log('Resultado da busca de colaboradores:', { colaboradores, error: colaboradoresError });
       console.log('Colaboradores ativos encontrados:', colaboradores);
 
       // Calcular progresso por colaborador
