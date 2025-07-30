@@ -511,18 +511,26 @@ export const protocolService = {
   },
 
   // Finalizar protocolo
-  async finish(protocolId, status, observacoes = '') {
-    console.log('Iniciando finalização do protocolo:', { protocolId, status, observacoes });
+  async finish(protocolId, status, observacoes = '', userId = null) {
+    console.log('Iniciando finalização do protocolo:', { protocolId, status, observacoes, userId });
     
     try {
+      // Preparar dados para atualização
+      const updateData = { 
+        status: status,
+        observacoes: observacoes,
+        atualizado_em: new Date().toISOString()
+      };
+      
+      // Se userId foi fornecido, definir o responsável
+      if (userId) {
+        updateData.responsavel_id = userId;
+      }
+      
       // Atualizar o status do protocolo
       const { data: updatedProtocol, error: updateError } = await supabase
         .from('protocolos')
-        .update({ 
-          status: status,
-          observacoes: observacoes,
-          atualizado_em: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', protocolId)
         .select()
         .single();
@@ -573,7 +581,7 @@ export const protocolService = {
       `)
       .gte('data_verificacao', startOfDay.toISOString())
       .lte('data_verificacao', endOfDay.toISOString())
-      .in('status', ['cancelado', 'dados_excluidos'])
+      .in('status', ['cancelado', 'dados_excluidos', 'coordenacao'])
 
     return { data, error }
   },
@@ -600,7 +608,7 @@ export const protocolService = {
         .from('protocolos')
         .select('*')
         .eq('responsavel_id', userId)
-        .in('status', ['cancelado', 'dados_excluidos'])
+        .in('status', ['cancelado', 'dados_excluidos', 'coordenacao'])
         .gte('atualizado_em', startDate.toISOString())
         .lte('atualizado_em', endDate.toISOString());
 
@@ -620,67 +628,4 @@ export const protocolService = {
   }
 }
 
-// Serviços de metas
-export const metaService = {
-  // Obter meta do dia
-  async getDayGoal(date = new Date()) {
-    try {
-      // Garantir que a data está em UTC e formatar como YYYY-MM-DD
-      const dateStr = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
-        .toISOString()
-        .split('T')[0];
-      
-      // Buscar meta para o sábado correspondente
-      const { data, error } = await supabase
-        .from('metas')
-        .select('*')
-        .eq('data_sabado', dateStr)
-        .maybeSingle();
 
-      // Se não encontrar a meta, retorna o valor padrão
-      if (error) throw error;
-      
-      if (!data) {
-        return { 
-          data: { 
-            data_sabado: dateStr,
-            meta_qtd: 48, // Valor padrão
-            created_at: new Date().toISOString()
-          }, 
-          error: null 
-        };
-      }
-      
-      return { 
-        data: {
-          data_sabado: dateStr,
-          meta_qtd: data.meta_qtd || 48
-        }, 
-        error: null 
-      };
-    } catch (error) {
-      console.error('Erro ao buscar meta do dia:', error);
-      return { 
-        data: { 
-          data_sabado: new Date().toISOString().split('T')[0],
-          meta_qtd: 48 
-        }, 
-        error: error.message || 'Erro ao buscar meta do dia' 
-      };
-    }
-  },
-
-  // Definir meta do dia
-  async setDayGoal(date, meta_qtd) {
-    const dateStr = date.toISOString().split('T')[0]
-    const { data, error } = await supabase
-      .from('metas')
-      .upsert([{
-        data_sabado: dateStr,
-        meta_qtd
-      }])
-      .select()
-
-    return { data, error }
-  }
-}

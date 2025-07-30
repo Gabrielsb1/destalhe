@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { protocolService } from '../services/supabase';
 import { supabase } from '../services/supabase';
+import { metaService } from '../services/metaService';
+import MetaManager from '../components/MetaManager';
+import ProductivityChart from '../components/ProductivityChart';
+import CollaboratorRanking from '../components/CollaboratorRanking';
+import InfoCards from '../components/InfoCards';
 import { 
   Users, FileText, Upload, Download, 
   BarChart3, Calendar, Target, Plus,
@@ -10,6 +15,7 @@ import {
   Settings
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import './DashboardAnimations.css';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -115,9 +121,9 @@ const AdminDashboard = () => {
     const startOfDay = new Date(today);
     startOfDay.setHours(0, 0, 0, 0);
     
-    // Filtra protocolos finalizados hoje (cancelados ou dados_excluidos)
+    // Filtra protocolos finalizados hoje (cancelados, dados_excluidos ou coordenação)
     const todayProtocols = protocols.filter(p => {
-      const isFinalizado = ['cancelado', 'dados_excluidos'].includes(p.status);
+      const isFinalizado = ['cancelado', 'dados_excluidos', 'coordenacao'].includes(p.status);
       
       if (!isFinalizado) {
         console.log(`Protocolo ${p.numero_protocolo}: não finalizado (status=${p.status})`);
@@ -136,6 +142,12 @@ const AdminDashboard = () => {
     console.log('Protocolos finalizados hoje:', todayProtocols);
 
     try {
+      // Buscar meta do dia
+      const { data: metaHoje } = await metaService.getMeta(today);
+      const metaDiaria = metaHoje?.meta_qtd || 48; // Meta padrão se não configurada
+      
+      console.log(`Meta do dia: ${metaDiaria} protocolos`);
+
       // Buscar todos os colaboradores ativos
       const { data: colaboradores } = await supabase
         .from('usuarios')
@@ -159,7 +171,9 @@ const AdminDashboard = () => {
             id: colaborador.id,
             nome: colaborador.nome,
             count,
-            meta_atingida: count >= 48 // Meta padrão de 48 protocolos
+            meta: metaDiaria,
+            meta_atingida: count >= metaDiaria,
+            percentual: Math.round((count / metaDiaria) * 100)
           });
         }
       } else {
@@ -170,20 +184,50 @@ const AdminDashboard = () => {
       const totalProtocolos = protocols.length;
       const pendentes = protocols.filter(p => p.status === 'pendente').length;
       const finalizados = protocols.filter(p => 
-        ['cancelado', 'dados_excluidos'].includes(p.status)
+        ['cancelado', 'dados_excluidos', 'coordenacao'].includes(p.status)
       ).length;
       
       // Finalizados hoje
       const finalizadosHoje = todayProtocols.length;
+
+      // Calcular protocolos da semana atual
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay()); // Domingo
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const weekProtocols = protocols.filter(p => {
+        if (!['cancelado', 'dados_excluidos', 'coordenacao'].includes(p.status)) return false;
+        const dataVerificacao = p.atualizado_em ? new Date(p.atualizado_em) : new Date(p.criado_em);
+        return dataVerificacao >= startOfWeek;
+      });
+      const finalizadosSemana = weekProtocols.length;
+
+      // Calcular protocolos do mês atual
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthProtocols = protocols.filter(p => {
+        if (!['cancelado', 'dados_excluidos', 'coordenacao'].includes(p.status)) return false;
+        const dataVerificacao = p.atualizado_em ? new Date(p.atualizado_em) : new Date(p.criado_em);
+        return dataVerificacao >= startOfMonth;
+      });
+      const finalizadosMes = monthProtocols.length;
+
+      // Debug log para verificar cálculos
+      console.log('Cálculos do Status do Progresso:');
+      console.log(`- Finalizados hoje: ${finalizadosHoje}`);
+      console.log(`- Finalizados semana: ${finalizadosSemana}`);
+      console.log(`- Finalizados mês: ${finalizadosMes}`);
 
       const stats = {
         total: totalProtocolos,
         pendentes: pendentes,
         finalizados: finalizados,
         finalizados_hoje: finalizadosHoje,
+        finalizados_semana: finalizadosSemana,
+        finalizados_mes: finalizadosMes,
         em_andamento: protocols.filter(p => p.status === 'em_andamento').length,
         cancelados: protocols.filter(p => p.status === 'cancelado').length,
         dados_excluidos: protocols.filter(p => p.status === 'dados_excluidos').length,
+        coordenacao: protocols.filter(p => p.status === 'coordenacao').length,
         colaboradores_ativos: colaboradores?.length || 0,
         por_usuario
       };
@@ -276,6 +320,7 @@ const AdminDashboard = () => {
       case 'em_andamento': return 'bg-blue-100 text-blue-800'
       case 'cancelado': return 'bg-red-100 text-red-800'
       case 'dados_excluidos': return 'bg-gray-100 text-gray-800'
+      case 'coordenacao': return 'bg-purple-100 text-purple-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -286,6 +331,7 @@ const AdminDashboard = () => {
       case 'em_andamento': return <FileText className="w-4 h-4" />
       case 'cancelado': return <XCircle className="w-4 h-4" />
       case 'dados_excluidos': return <CheckCircle className="w-4 h-4" />
+      case 'coordenacao': return <FileText className="w-4 h-4" />
       default: return <FileText className="w-4 h-4" />
     }
   }
@@ -372,75 +418,124 @@ const AdminDashboard = () => {
         {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
           <div className="space-y-8">
-            {/* Stats Cards */}
+            {/* Cards de Totais Gerais */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center">
-                  <FileText className="w-8 h-8 text-blue-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total de Protocolos</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
+              <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover-lift">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Total de Protocolos</p>
+                    <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
+                    <p className="text-xs text-gray-500 mt-1">Todos os protocolos na tabela</p>
+                  </div>
+                  <div className="p-3 rounded-full bg-blue-50">
+                    <FileText className="w-6 h-6 text-blue-600" />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center">
-                  <Clock className="w-8 h-8 text-yellow-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Pendentes</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.pendentes}</p>
+              <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover-lift">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Protocolos Pendentes</p>
+                    <p className="text-3xl font-bold text-yellow-600">{stats.pendentes}</p>
+                    <p className="text-xs text-gray-500 mt-1">Aguardando verificação</p>
+                  </div>
+                  <div className="p-3 rounded-full bg-yellow-50">
+                    <Clock className="w-6 h-6 text-yellow-600" />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Finalizados</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.finalizados}</p>
+              <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover-lift">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Protocolos Finalizados</p>
+                    <p className="text-3xl font-bold text-green-600">{stats.finalizados}</p>
+                    <p className="text-xs text-gray-500 mt-1">Verificados e concluídos</p>
+                  </div>
+                  <div className="p-3 rounded-full bg-green-50">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center">
-                  <Users className="w-8 h-8 text-purple-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Colaboradores Ativos</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.colaboradores_ativos}</p>
+              <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover-lift">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Em Andamento</p>
+                    <p className="text-3xl font-bold text-orange-600">{stats.em_andamento}</p>
+                    <p className="text-xs text-gray-500 mt-1">Sendo verificados</p>
+                  </div>
+                  <div className="p-3 rounded-full bg-orange-50">
+                    <FileText className="w-6 h-6 text-orange-600" />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Progress by User */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                Progresso por Colaborador (Hoje)
-              </h3>
-              <div className="space-y-4">
-                {stats.por_usuario?.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center">
-                      <User className="w-5 h-5 text-gray-400 mr-3" />
-                      <span className="font-medium text-gray-900">{user.nome}</span>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <span className="text-lg font-semibold text-gray-900">
-                        {user.count}/48
-                      </span>
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        user.meta_atingida ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {user.meta_atingida ? 'Meta Atingida' : 'Em Progresso'}
-                      </div>
-                    </div>
+            {/* Cards de Detalhamento dos Finalizados */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover-lift">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Cancelados</p>
+                    <p className="text-3xl font-bold text-red-600">{stats.cancelados}</p>
+                    <p className="text-xs text-gray-500 mt-1">Protocolos cancelados</p>
                   </div>
-                ))}
+                  <div className="p-3 rounded-full bg-red-50">
+                    <XCircle className="w-6 h-6 text-red-600" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover-lift">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">Dados Excluídos</p>
+                    <p className="text-3xl font-bold text-gray-600">{stats.dados_excluidos}</p>
+                    <p className="text-xs text-gray-500 mt-1">Dados excluídos do sistema</p>
+                  </div>
+                  <div className="p-3 rounded-full bg-gray-50">
+                    <CheckCircle className="w-6 h-6 text-gray-600" />
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* Card de Coordenação */}
+            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover-lift">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Coordenação</p>
+                  <p className="text-3xl font-bold text-purple-600">{stats.coordenacao || 0}</p>
+                  <p className="text-xs text-gray-500 mt-1">Protocolos com observações</p>
+                </div>
+                <div className="p-3 rounded-full bg-purple-50">
+                  <FileText className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+            </div>
+
+            {/* Cards Informativos Melhorados */}
+            <InfoCards 
+              stats={{
+                totalUsers: stats.colaboradores_ativos,
+                protocolosHoje: stats.finalizados_hoje,
+                protocolosRestantes: Math.max(0, (stats.colaboradores_ativos * (stats.por_usuario?.[0]?.meta || 48)) - (stats.finalizados_hoje || 0)),
+                protocolosSemana: stats.finalizados_semana,
+                protocolosMes: stats.finalizados_mes
+              }}
+              meta={stats.colaboradores_ativos * (stats.por_usuario?.[0]?.meta || 48)}
+            />
+
+            {/* Gráfico de Produtividade */}
+            <ProductivityChart 
+              protocolos={protocolos}
+              meta={stats.colaboradores_ativos * (stats.por_usuario?.[0]?.meta || 48)}
+            />
+
+            {/* Ranking de Colaboradores */}
+            <CollaboratorRanking users={stats.por_usuario || []} />
           </div>
         )}
 
@@ -483,6 +578,7 @@ const AdminDashboard = () => {
                     <option value="em_andamento">Em Andamento</option>
                     <option value="cancelado">Cancelado</option>
                     <option value="dados_excluidos">Dados Excluídos</option>
+                    <option value="coordenacao">Coordenação</option>
                   </select>
                 </div>
 
@@ -584,10 +680,7 @@ const AdminDashboard = () => {
 
         {/* Goals Tab */}
         {activeTab === 'goals' && (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">Configurar Metas</h2>
-            <p className="text-gray-600">Funcionalidade de configuração de metas será implementada aqui.</p>
-          </div>
+          <MetaManager />
         )}
       </div>
 

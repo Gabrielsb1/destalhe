@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { protocolService, metaService } from '../services/supabase'
+import { protocolService } from '../services/supabase'
+import { metaService } from '../services/metaService'
 import { FileText, CheckCircle, XCircle, Clock, Target, User, Calendar } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -45,7 +46,7 @@ const CollaboratorDashboard = () => {
 
       // Carregar meta do dia
       console.log('Carregando meta do dia...');
-      const { data: goalData } = await metaService.getDayGoal();
+      const { data: goalData } = await metaService.getCurrentMeta();
       console.log('Meta do dia:', goalData?.meta_qtd || 48);
       setDayGoal(goalData?.meta_qtd || 48);
 
@@ -94,7 +95,8 @@ const CollaboratorDashboard = () => {
       const { error } = await protocolService.finish(
         selectedProtocol.id, 
         statusFinal, 
-        observacoes
+        observacoes,
+        user.id
       );
       
       if (error) {
@@ -104,7 +106,20 @@ const CollaboratorDashboard = () => {
       }
 
       console.log('Protocolo finalizado com sucesso');
-      const statusText = statusFinal === 'cancelado' ? 'cancelado' : 'marcado como dados excluídos';
+      let statusText;
+      switch (statusFinal) {
+        case 'cancelado':
+          statusText = 'cancelado';
+          break;
+        case 'dados_excluidos':
+          statusText = 'marcado como dados excluídos';
+          break;
+        case 'coordenacao':
+          statusText = 'enviado para coordenação';
+          break;
+        default:
+          statusText = 'finalizado';
+      }
       toast.success(`Protocolo ${statusText} com sucesso!`);
       
       setSelectedProtocol(null);
@@ -124,6 +139,7 @@ const CollaboratorDashboard = () => {
       case 'em_andamento': return 'bg-blue-100 text-blue-800'
       case 'cancelado': return 'bg-red-100 text-red-800'
       case 'dados_excluidos': return 'bg-gray-100 text-gray-800'
+      case 'coordenacao': return 'bg-purple-100 text-purple-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -134,6 +150,7 @@ const CollaboratorDashboard = () => {
       case 'em_andamento': return <FileText className="w-4 h-4" />
       case 'cancelado': return <XCircle className="w-4 h-4" />
       case 'dados_excluidos': return <CheckCircle className="w-4 h-4" />
+      case 'coordenacao': return <FileText className="w-4 h-4" />
       default: return <FileText className="w-4 h-4" />
     }
   }
@@ -338,12 +355,21 @@ const CollaboratorDashboard = () => {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Adicione observações sobre a verificação do protocolo..."
               />
+              {!observacoes.trim() ? (
+                <p className="mt-2 text-sm text-purple-600">
+                  ⚠️ Para marcar como "Coordenação", é necessário adicionar observações.
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-blue-600">
+                  ✅ Com observações adicionadas, use "Coordenação" para enviar para análise.
+                </p>
+              )}
             </div>
 
             <div className="flex space-x-4">
               <button
                 onClick={() => handleFinishProtocol('cancelado')}
-                disabled={submitting}
+                disabled={submitting || observacoes.trim()}
                 className="flex-1 bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 <XCircle className="w-5 h-5 mr-2" />
@@ -351,11 +377,19 @@ const CollaboratorDashboard = () => {
               </button>
               <button
                 onClick={() => handleFinishProtocol('dados_excluidos')}
-                disabled={submitting}
+                disabled={submitting || observacoes.trim()}
                 className="flex-1 bg-gray-600 text-white py-3 px-4 rounded-lg hover:bg-gray-700 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 <CheckCircle className="w-5 h-5 mr-2" />
                 {submitting ? 'Processando...' : 'Dados Excluídos'}
+              </button>
+              <button
+                onClick={() => handleFinishProtocol('coordenacao')}
+                disabled={submitting || !observacoes.trim()}
+                className="flex-1 bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              >
+                <FileText className="w-5 h-5 mr-2" />
+                {submitting ? 'Processando...' : 'Coordenação'}
               </button>
             </div>
           </div>
