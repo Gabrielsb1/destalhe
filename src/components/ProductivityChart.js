@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -33,9 +33,9 @@ const ProductivityChart = ({ protocolos, meta }) => {
     if (protocolos && protocolos.length > 0) {
       generateChartData();
     }
-  }, [protocolos, meta]);
+  }, [generateChartData]);
 
-  const generateChartData = async () => {
+  const generateChartData = useCallback(async () => {
     // Agrupar protocolos VERIFICADOS/FINALIZADOS por data
     const protocolosPorData = {};
     
@@ -117,7 +117,7 @@ const ProductivityChart = ({ protocolos, meta }) => {
       ],
     });
     setLoading(false);
-  };
+  }, [protocolos, meta]);
 
   const options = {
     responsive: true,
