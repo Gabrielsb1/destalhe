@@ -29,12 +29,6 @@ const ProductivityChart = ({ protocolos, meta }) => {
   const [chartData, setChartData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (protocolos && protocolos.length > 0) {
-      generateChartData();
-    }
-  }, [generateChartData]);
-
   const generateChartData = useCallback(async () => {
     // Agrupar protocolos VERIFICADOS/FINALIZADOS por data
     const protocolosPorData = {};
@@ -117,7 +111,13 @@ const ProductivityChart = ({ protocolos, meta }) => {
       ],
     });
     setLoading(false);
-  }, [protocolos, meta]);
+  }, [protocolos]);
+
+  useEffect(() => {
+    if (protocolos && protocolos.length > 0) {
+      generateChartData();
+    }
+  }, [generateChartData]);
 
   const options = {
     responsive: true,
