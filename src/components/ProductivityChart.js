@@ -117,7 +117,7 @@ const ProductivityChart = ({ protocolos, meta }) => {
     if (protocolos && protocolos.length > 0) {
       generateChartData();
     }
-  }, [generateChartData]);
+  }, [generateChartData, protocolos]);
 
   const options = {
     responsive: true,
