@@ -223,19 +223,10 @@ export const protocolService = {
     return isNaN(num) ? 0 : num;
   },
 
-  // Listar protocolos disponíveis para colaborador
+    // Listar protocolos disponíveis para colaborador
   async getAvailable() {
     try {
       console.log('🔍 getAvailable - Iniciando busca de protocolos...');
-      
-      // Teste simples de conexão
-      console.log('🔍 getAvailable - Testando conexão com Supabase...');
-      const { data: testData, error: testError } = await supabase
-        .from('protocolos')
-        .select('count')
-        .limit(1);
-      
-      console.log('🔍 getAvailable - Teste de conexão:', { testData, testError });
       
       // Obter o usuário atual do localStorage
       const userStr = localStorage.getItem('user');
@@ -256,70 +247,54 @@ export const protocolService = {
 
       console.log('✅ getAvailable - Usuário autenticado:', user);
       
-            // Primeiro, buscar TODOS os protocolos para debug
-      console.log('🔍 getAvailable - Buscando TODOS os protocolos...');
-      console.log('🔍 getAvailable - Supabase URL:', supabaseUrl);
+      // Buscar protocolos atribuídos ao usuário (pendentes e em andamento)
+      console.log('🔍 getAvailable - Buscando protocolos atribuídos ao usuário...');
       
-      // Query mais simples para testar
-      const { data: todosProtocolos, error: errorTodos } = await supabase
-        .from('protocolos')
-        .select('*');
-
-      console.log('📊 getAvailable - TODOS os protocolos no banco:', todosProtocolos);
-      console.log('📊 getAvailable - Total de protocolos no banco:', todosProtocolos?.length || 0);
-      console.log('📊 getAvailable - Erro (se houver):', errorTodos);
-
-      if (errorTodos) {
-        console.error('❌ getAvailable - Erro ao buscar todos os protocolos:', errorTodos);
-        console.error('❌ getAvailable - Detalhes do erro:', {
-          message: errorTodos.message,
-          details: errorTodos.details,
-          hint: errorTodos.hint
-        });
-        throw errorTodos;
-      }
-      
-      // Buscar protocolos pendentes
-      console.log('🔍 getAvailable - Buscando protocolos pendentes...');
-      const { data: protocolosPendentes, error: errorPendentes } = await supabase
+      const { data: protocolosUsuario, error: errorUsuario } = await supabase
         .from('protocolos')
         .select('*')
-        .eq('status', 'pendente');
+        .eq('responsavel_id', user.id)
+        .in('status', ['pendente', 'em_andamento'])
+        .order('numero_protocolo');
+
+      console.log('📊 getAvailable - Protocolos do usuário:', protocolosUsuario);
+      console.log('📊 getAvailable - Total de protocolos do usuário:', protocolosUsuario?.length || 0);
       
-      console.log('📊 getAvailable - Protocolos pendentes:', protocolosPendentes);
-      console.log('📊 getAvailable - Total de protocolos pendentes:', protocolosPendentes?.length || 0);
-      
-      if (errorPendentes) {
-        console.error('❌ getAvailable - Erro ao buscar protocolos pendentes:', errorPendentes);
-        throw errorPendentes;
+      if (errorUsuario) {
+        console.error('❌ getAvailable - Erro ao buscar protocolos do usuário:', errorUsuario);
+        throw errorUsuario;
       }
       
-      // Buscar protocolos em andamento pelo usuário atual
-      console.log('🔍 getAvailable - Buscando protocolos em andamento para usuário ID:', user.id);
-      const { data: protocolosEmAndamento, error: errorEmAndamento } = await supabase
-        .from('protocolos')
-        .select('*')
-        .eq('status', 'em_andamento')
-        .eq('responsavel_id', user.id);
-      
-      console.log('📊 getAvailable - Protocolos em andamento:', protocolosEmAndamento);
-      console.log('📊 getAvailable - Total de protocolos em andamento:', protocolosEmAndamento?.length || 0);
-      
-      if (errorEmAndamento) {
-        console.error('❌ getAvailable - Erro ao buscar protocolos em andamento:', errorEmAndamento);
-        throw errorEmAndamento;
+      // Se o usuário não tem protocolos atribuídos, buscar protocolos pendentes sem responsável
+      if (!protocolosUsuario || protocolosUsuario.length === 0) {
+        console.log('🔍 getAvailable - Usuário sem protocolos atribuídos, buscando pendentes sem responsável...');
+        
+        const { data: protocolosPendentes, error: errorPendentes } = await supabase
+          .from('protocolos')
+          .select('*')
+          .eq('status', 'pendente')
+          .is('responsavel_id', null)
+          .order('numero_protocolo')
+          .limit(1000); // Limitar a 1000 para não sobrecarregar
+        
+        console.log('📊 getAvailable - Protocolos pendentes sem responsável:', protocolosPendentes);
+        console.log('📊 getAvailable - Total de protocolos pendentes:', protocolosPendentes?.length || 0);
+        
+        if (errorPendentes) {
+          console.error('❌ getAvailable - Erro ao buscar protocolos pendentes:', errorPendentes);
+          throw errorPendentes;
+        }
+        
+        return { 
+          data: protocolosPendentes || [], 
+          error: null 
+        };
       }
       
-      // Combinar os resultados
-      const protocolos = [
-        ...(protocolosEmAndamento || []),
-        ...(protocolosPendentes || [])
-      ];
-      
-      console.log('Protocolos disponíveis para o usuário:', protocolos);
-      console.log('Total de protocolos disponíveis:', protocolos?.length || 0);
+      console.log('Protocolos disponíveis para o usuário:', protocolosUsuario);
+      console.log('Total de protocolos disponíveis:', protocolosUsuario?.length || 0);
       return { 
-        data: protocolos || [], 
+        data: protocolosUsuario || [], 
         error: null 
       };
     } catch (error) {

@@ -33,10 +33,10 @@ const CollaboratorDashboard = () => {
         return;
       }
       
-      // Garantir que temos no máximo 1000 protocolos
-      const limitedProtocols = (protocolsData || []).slice(0, 1000);
-      console.log(`Carregados ${limitedProtocols.length} protocolos:`, limitedProtocols);
-      setProtocolos(limitedProtocols);
+      // Usar todos os protocolos disponíveis
+      const allProtocols = (protocolsData || []);
+      console.log(`Carregados ${allProtocols.length} protocolos:`, allProtocols);
+      setProtocolos(allProtocols);
 
       // Carregar progresso do dia
       console.log('Carregando progresso do dia...');
