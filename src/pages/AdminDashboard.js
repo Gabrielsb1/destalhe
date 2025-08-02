@@ -121,26 +121,6 @@ const AdminDashboard = () => {
     const startOfDay = new Date(today);
     startOfDay.setHours(0, 0, 0, 0);
     
-    // Filtra protocolos finalizados hoje (cancelados, dados_excluidos ou coordenação)
-    const todayProtocols = protocols.filter(p => {
-      const isFinalizado = ['cancelado', 'dados_excluidos', 'coordenacao'].includes(p.status);
-      
-      if (!isFinalizado) {
-        console.log(`Protocolo ${p.numero_protocolo}: não finalizado (status=${p.status})`);
-        return false;
-      }
-      
-      // Para protocolos finalizados, usar a data de atualização
-      const dataVerificacao = p.verificacao?.data_verificacao ? new Date(p.verificacao.data_verificacao) : null;
-      const isHoje = dataVerificacao && dataVerificacao >= startOfDay;
-      
-      console.log(`Protocolo ${p.numero_protocolo}: status=${p.status}, data_verificacao=${p.verificacao?.data_verificacao}, isHoje=${isHoje}`);
-      
-      return isHoje;
-    });
-
-    console.log('Protocolos finalizados hoje:', todayProtocols);
-
     try {
       // Buscar meta do dia
       const { data: metaHoje } = await metaService.getMeta(today);
@@ -155,15 +135,29 @@ const AdminDashboard = () => {
         .eq('ativo', true)
         .eq('tipo_usuario', 'colaborador');
 
+      // Buscar protocolos finalizados hoje diretamente do banco
+      const { data: protocolosFinalizadosHoje, error: errorHoje } = await supabase
+        .from('protocolos')
+        .select('id, numero_protocolo, status, responsavel_id, atualizado_em')
+        .in('status', ['cancelado', 'dados_excluidos', 'coordenacao'])
+        .gte('atualizado_em', startOfDay.toISOString())
+        .lt('atualizado_em', new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000).toISOString());
+
+      if (errorHoje) {
+        console.error('Erro ao buscar protocolos finalizados hoje:', errorHoje);
+      }
+
+      console.log('Protocolos finalizados hoje (do banco):', protocolosFinalizadosHoje);
+
       // Calcular progresso por colaborador
       const por_usuario = [];
       
       if (colaboradores && colaboradores.length > 0) {
         for (const colaborador of colaboradores) {
           // Contar protocolos finalizados pelo colaborador hoje
-          const count = todayProtocols.filter(p => 
+          const count = protocolosFinalizadosHoje ? protocolosFinalizadosHoje.filter(p => 
             p.responsavel_id === colaborador.id
-          ).length;
+          ).length : 0;
 
           console.log(`Colaborador ${colaborador.nome} (${colaborador.id}): ${count} protocolos finalizados hoje`);
 
@@ -180,36 +174,48 @@ const AdminDashboard = () => {
         console.log('Nenhum colaborador ativo encontrado');
       }
 
+      // Buscar estatísticas gerais do banco
+      const { data: statsGerais, error: errorStats } = await supabase
+        .from('protocolos')
+        .select('status')
+        .in('status', ['pendente', 'em_andamento', 'cancelado', 'dados_excluidos', 'coordenacao']);
+
+      if (errorStats) {
+        console.error('Erro ao buscar estatísticas gerais:', errorStats);
+      }
+
       // Calcular totais
       const totalProtocolos = protocols.length;
-      const pendentes = protocols.filter(p => p.status === 'pendente').length;
-      const finalizados = protocols.filter(p => 
+      const pendentes = statsGerais ? statsGerais.filter(p => p.status === 'pendente').length : 0;
+      const finalizados = statsGerais ? statsGerais.filter(p => 
         ['cancelado', 'dados_excluidos', 'coordenacao'].includes(p.status)
-      ).length;
+      ).length : 0;
       
       // Finalizados hoje
-      const finalizadosHoje = todayProtocols.length;
+      const finalizadosHoje = protocolosFinalizadosHoje ? protocolosFinalizadosHoje.length : 0;
 
-      // Calcular protocolos da semana atual
+      // Buscar protocolos da semana atual
       const startOfWeek = new Date(today);
       startOfWeek.setDate(today.getDate() - today.getDay()); // Domingo
       startOfWeek.setHours(0, 0, 0, 0);
       
-      const weekProtocols = protocols.filter(p => {
-        if (!['cancelado', 'dados_excluidos', 'coordenacao'].includes(p.status)) return false;
-        const dataVerificacao = p.atualizado_em ? new Date(p.atualizado_em) : new Date(p.criado_em);
-        return dataVerificacao >= startOfWeek;
-      });
-      const finalizadosSemana = weekProtocols.length;
+      const { data: protocolosSemana, error: errorSemana } = await supabase
+        .from('protocolos')
+        .select('id')
+        .in('status', ['cancelado', 'dados_excluidos', 'coordenacao'])
+        .gte('atualizado_em', startOfWeek.toISOString());
+      
+      const finalizadosSemana = protocolosSemana ? protocolosSemana.length : 0;
 
-      // Calcular protocolos do mês atual
+      // Buscar protocolos do mês atual
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const monthProtocols = protocols.filter(p => {
-        if (!['cancelado', 'dados_excluidos', 'coordenacao'].includes(p.status)) return false;
-        const dataVerificacao = p.atualizado_em ? new Date(p.atualizado_em) : new Date(p.criado_em);
-        return dataVerificacao >= startOfMonth;
-      });
-      const finalizadosMes = monthProtocols.length;
+      const { data: protocolosMes, error: errorMes } = await supabase
+        .from('protocolos')
+        .select('id')
+        .in('status', ['cancelado', 'dados_excluidos', 'coordenacao'])
+        .gte('atualizado_em', startOfMonth.toISOString());
+      
+      const finalizadosMes = protocolosMes ? protocolosMes.length : 0;
 
       // Debug log para verificar cálculos
       console.log('Cálculos do Status do Progresso:');
@@ -224,10 +230,10 @@ const AdminDashboard = () => {
         finalizados_hoje: finalizadosHoje,
         finalizados_semana: finalizadosSemana,
         finalizados_mes: finalizadosMes,
-        em_andamento: protocols.filter(p => p.status === 'em_andamento').length,
-        cancelados: protocols.filter(p => p.status === 'cancelado').length,
-        dados_excluidos: protocols.filter(p => p.status === 'dados_excluidos').length,
-        coordenacao: protocols.filter(p => p.status === 'coordenacao').length,
+        em_andamento: statsGerais ? statsGerais.filter(p => p.status === 'em_andamento').length : 0,
+        cancelados: statsGerais ? statsGerais.filter(p => p.status === 'cancelado').length : 0,
+        dados_excluidos: statsGerais ? statsGerais.filter(p => p.status === 'dados_excluidos').length : 0,
+        coordenacao: statsGerais ? statsGerais.filter(p => p.status === 'coordenacao').length : 0,
         colaboradores_ativos: colaboradores?.length || 0,
         por_usuario
       };

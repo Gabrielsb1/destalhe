@@ -75,8 +75,8 @@ BEGIN
         WHERE numero_protocolo BETWEEN protocolo_inicio AND protocolo_fim;
         
         -- Verificar quantos protocolos foram atribuídos
-        GET DIAGNOSTICS colaborador_index = ROW_COUNT;
-        RAISE NOTICE 'Protocolos atribuídos para %: %', colaborador.nome, colaborador_index;
+        GET DIAGNOSTICS protocolos_atribuidos = ROW_COUNT;
+        RAISE NOTICE 'Protocolos atribuídos para %: %', colaborador.nome, protocolos_atribuidos;
         
         colaborador_index := colaborador_index + 1;
     END LOOP;

@@ -1,156 +1,123 @@
-# Guia de Distribuição de Protocolos entre Colaboradores
+# Guia de Distribuição de Protocolos
 
-## Objetivo
-Distribuir automaticamente os protocolos da tabela `protocolos` entre os colaboradores ativos, de forma que cada colaborador receba 1000 protocolos sequenciais.
+## Como os Protocolos Foram Distribuídos
 
-## Como Funciona
-- Cada colaborador ativo recebe exatamente 1000 protocolos
-- Os protocolos são distribuídos sequencialmente (ex: Maria recebe 1-1000, João recebe 1001-2000, etc.)
-- A distribuição é feita atualizando o campo `responsavel_id` na tabela `protocolos`
-- Apenas colaboradores com `tipo_usuario = 'colaborador'` e `ativo = true` participam da distribuição
+### Distribuição Sequencial
+Os protocolos foram distribuídos de forma sequencial entre os colaboradores, seguindo o padrão:
 
-## Pré-requisitos
-1. Ter acesso ao banco de dados Supabase
-2. Ter a chave de serviço (service role key) configurada
-3. Verificar se existem protocolos suficientes na tabela
-4. Verificar se existem colaboradores ativos
+- **João**: Protocolos 1 a 1000
+- **Maria**: Protocolos 1001 a 2000  
+- **Pedro**: Protocolos 2001 a 3000
+- E assim por diante...
 
-## Execução
+### Scripts de Distribuição
+1. **`DISTRIBUIR_PROTOCOLOS_COLABORADORES.sql`** - Distribuição básica
+2. **`DISTRIBUIR_PROTOCOLOS_23K.sql`** - Distribuição para 23.096 protocolos
+3. **`DISTRIBUIR_PROTOCOLOS_10_COLABORADORES.sql`** - Distribuição específica para 10 colaboradores
 
-### Opção 1: Script SQL (Recomendado)
-Execute o arquivo `DISTRIBUIR_PROTOCOLOS_COLABORADORES.sql` diretamente no SQL Editor do Supabase:
+## Problemas Identificados
 
-1. Acesse o Supabase Dashboard
-2. Vá para "SQL Editor"
-3. Cole o conteúdo do arquivo `DISTRIBUIR_PROTOCOLOS_COLABORADORES.sql`
-4. Execute o script
+### 1. Erro na Contagem de Protocolos
+**Problema**: No script original, havia um erro na variável `colaborador_index` que estava sendo sobrescrita.
 
-### Opção 2: Script JavaScript
-Execute o arquivo `scripts/distribuir_protocolos.js`:
+**Solução**: Corrigido para usar `protocolos_atribuidos` para contar os protocolos atribuídos.
 
-```bash
-cd scripts
-npm install
-node distribuir_protocolos.js
-```
+### 2. Problema no Cálculo de Progresso
+**Problema**: O painel administrativo não estava contabilizando corretamente o progresso dos colaboradores.
 
-## Processo Detalhado
+**Causas possíveis**:
+- Uso incorreto do campo de data (`verificacao.data_verificacao` vs `atualizado_em`)
+- Problemas na filtragem por `responsavel_id`
 
-### 1. Verificação Inicial
-- Conta quantos colaboradores ativos existem
-- Lista todos os colaboradores que participarão da distribuição
-- Verifica o total de protocolos disponíveis
+**Solução**: Corrigido para usar `atualizado_em` do protocolo.
 
-### 2. Distribuição
-- Para cada colaborador:
-  - Calcula a faixa de protocolos (ex: 1-1000, 1001-2000, etc.)
-  - Atualiza o campo `responsavel_id` dos protocolos na faixa
-  - Registra quantos protocolos foram atribuídos
+### 3. Dados Não Sendo Exibidos Corretamente
+**Problema**: O painel não mostrava os dados corretos de progresso.
 
-### 3. Verificação Final
-- Mostra a distribuição final por colaborador
-- Verifica se há protocolos sem responsável
-- Mostra a distribuição por status
+**Causas**:
+- Filtros incorretos na consulta SQL
+- Problemas na estrutura dos dados retornados
 
-## Resultados Esperados
+## Scripts de Verificação e Correção
 
-### Antes da Distribuição
-- Todos os protocolos têm `responsavel_id = NULL`
-- Colaboradores não têm protocolos atribuídos
+### 1. Verificar Distribuição Atual
+Execute o script `VERIFICAR_DISTRIBUICAO_ATUAL.sql` para:
+- Verificar total de protocolos e colaboradores
+- Ver distribuição atual dos protocolos
+- Identificar protocolos sem responsável
+- Verificar protocolos finalizados hoje
+- Validar faixas de protocolos por colaborador
 
-### Após a Distribuição
-- Cada colaborador tem exatamente 1000 protocolos (ou menos se não houver protocolos suficientes)
-- Os protocolos são sequenciais por colaborador
-- Pode haver protocolos sem responsável se não houver colaboradores suficientes
+### 2. Corrigir Distribuição
+Execute o script `CORRIGIR_DISTRIBUICAO_PROTOCOLOS.sql` para:
+- Limpar responsáveis existentes
+- Redistribuir protocolos sequencialmente
+- Verificar distribuição final
+- Validar se as faixas estão corretas
 
-## Verificações Pós-Distribuição
+## Como Executar os Scripts
 
-### 1. Verificar Distribuição por Colaborador
+### 1. Verificação
 ```sql
-SELECT 
-    u.nome,
-    MIN(p.numero_protocolo) as primeiro_protocolo,
-    MAX(p.numero_protocolo) as ultimo_protocolo,
-    COUNT(p.id) as total_protocolos
-FROM usuarios u
-LEFT JOIN protocolos p ON u.id = p.responsavel_id
-WHERE u.tipo_usuario = 'colaborador' AND u.ativo = true
-GROUP BY u.id, u.nome
-ORDER BY u.nome;
+-- Execute no seu banco de dados
+\i VERIFICAR_DISTRIBUICAO_ATUAL.sql
 ```
 
-### 2. Verificar Protocolos Sem Responsável
+### 2. Correção (se necessário)
 ```sql
-SELECT COUNT(*) as protocolos_sem_responsavel
-FROM protocolos 
-WHERE responsavel_id IS NULL;
+-- Execute no seu banco de dados
+\i CORRIGIR_DISTRIBUICAO_PROTOCOLOS.sql
 ```
 
-### 3. Verificar Distribuição por Status
-```sql
-SELECT 
-    status,
-    COUNT(*) as quantidade
-FROM protocolos 
-GROUP BY status
-ORDER BY status;
+## Estrutura Esperada
+
+### Distribuição Correta
+Cada colaborador deve ter:
+- **Faixa sequencial**: 1000 protocolos consecutivos
+- **Primeiro protocolo**: (posição × 1000) + 1
+- **Último protocolo**: (posição + 1) × 1000
+
+### Exemplo
 ```
+Colaborador 1 (posição 0): 1-1000
+Colaborador 2 (posição 1): 1001-2000
+Colaborador 3 (posição 2): 2001-3000
+```
+
+## Verificação no Painel Administrativo
+
+### O que Verificar
+1. **Total de protocolos**: Deve corresponder ao total na base
+2. **Protocolos pendentes**: Protocolos com status 'pendente'
+3. **Protocolos finalizados**: Protocolos com status 'cancelado', 'dados_excluidos' ou 'coordenacao'
+4. **Progresso por colaborador**: Protocolos finalizados hoje por cada colaborador
+
+### Como Testar
+1. Execute os scripts de verificação
+2. Compare os resultados com o painel administrativo
+3. Se houver discrepâncias, execute o script de correção
+4. Recarregue o painel e verifique novamente
 
 ## Troubleshooting
 
-### Erro: "missing FROM-clause entry for table u"
-**Causa:** Este erro ocorre quando há consultas `UNION ALL` com `ORDER BY` que referenciam aliases não definidos no primeiro `SELECT`.
+### Se o Progresso Não Está Sendo Contabilizado
+1. Verifique se os protocolos têm `responsavel_id` preenchido
+2. Confirme se a data `atualizado_em` está sendo atualizada
+3. Verifique se o status está correto ('cancelado', 'dados_excluidos', 'coordenacao')
 
-**Solução:** O script foi corrigido separando os `SELECT` de cabeçalho dos `SELECT` de dados. Agora cada consulta é executada independentemente.
+### Se a Distribuição Está Incorreta
+1. Execute o script de verificação
+2. Identifique onde está o problema
+3. Execute o script de correção
+4. Verifique novamente
 
-### Erro: "UNION types text and integer cannot be matched"
-**Causa:** Tentativa de unir valores de tipos diferentes em uma consulta `UNION`.
+### Se o Painel Não Carrega
+1. Verifique os logs do console do navegador
+2. Confirme se as consultas SQL estão funcionando
+3. Verifique se há erros de RLS (Row Level Security)
 
-**Solução:** Usar cast explícito (`::TEXT`) para converter valores numéricos para texto.
-
-### Erro: "column status does not exist"
-**Causa:** `ORDER BY` aplicado a uma consulta `UNION` onde a coluna não está disponível no contexto.
-
-**Solução:** Separar as consultas `UNION` em consultas individuais.
-
-## Logs e Monitoramento
-
-### Durante a Execução
-O script SQL usa `RAISE NOTICE` para mostrar:
-- Total de protocolos e colaboradores
-- Avisos se não há protocolos suficientes
-- Para cada colaborador: nome, ID, faixa de protocolos
-- Quantidade de protocolos atribuídos por colaborador
-
-### Logs do JavaScript
-O script JavaScript mostra logs detalhados:
-- `🚀` - Início de operações
-- `✅` - Sucessos
-- `❌` - Erros
-- `📊` - Informações estatísticas
-- `🎉` - Conclusão bem-sucedida
-
-## Reversão (Se Necessário)
-
-Para reverter a distribuição e deixar todos os protocolos sem responsável:
-
-```sql
-UPDATE protocolos 
-SET responsavel_id = NULL;
-```
-
-## Notas Importantes
-
-1. **Backup:** Sempre faça backup antes de executar scripts de distribuição
-2. **Horário:** Execute em horários de baixo tráfego
-3. **Teste:** Teste primeiro em um ambiente de desenvolvimento
-4. **Monitoramento:** Monitore o desempenho durante a execução
-5. **Verificação:** Sempre verifique os resultados após a execução
-
-## Suporte
-
-Se encontrar problemas:
-1. Verifique os logs de erro
-2. Confirme se as permissões estão corretas
-3. Verifique se a conexão com o banco está estável
-4. Consulte a seção de troubleshooting acima 
+## Contatos e Suporte
+Se encontrar problemas que não foram resolvidos por este guia, verifique:
+1. Os logs de erro no console
+2. Os resultados dos scripts de verificação
+3. A estrutura atual da base de dados 
