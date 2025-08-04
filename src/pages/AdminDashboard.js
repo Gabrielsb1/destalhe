@@ -199,7 +199,7 @@ const AdminDashboard = () => {
       startOfWeek.setDate(today.getDate() - today.getDay()); // Domingo
       startOfWeek.setHours(0, 0, 0, 0);
       
-      const { data: protocolosSemana, error: errorSemana } = await supabase
+      const { data: protocolosSemana } = await supabase
         .from('protocolos')
         .select('id')
         .in('status', ['cancelado', 'dados_excluidos', 'coordenacao'])
@@ -209,7 +209,7 @@ const AdminDashboard = () => {
 
       // Buscar protocolos do mês atual
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      const { data: protocolosMes, error: errorMes } = await supabase
+      const { data: protocolosMes } = await supabase
         .from('protocolos')
         .select('id')
         .in('status', ['cancelado', 'dados_excluidos', 'coordenacao'])
